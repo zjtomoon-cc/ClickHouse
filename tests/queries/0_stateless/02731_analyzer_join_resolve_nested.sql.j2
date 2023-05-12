@@ -1,20 +1,35 @@
-DROP TABLE IF EXISTS a;
-DROP TABLE IF EXISTS b;
+DROP TABLE IF EXISTS ta;
+DROP TABLE IF EXISTS tb;
+DROP TABLE IF EXISTS ttta;
+DROP TABLE IF EXISTS tttb;
+DROP TABLE IF EXISTS na;
+DROP TABLE IF EXISTS nb;
+DROP TABLE IF EXISTS nnna;
+DROP TABLE IF EXISTS nnnb;
 
-DROP TABLE IF EXISTS a;
-DROP TABLE IF EXISTS b;
+CREATE table ta (x Int32, t Tuple(t UInt32, s String)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO ta VALUES (1, (1, 'a'));
 
-CREATE table a (x Int32, t Nested(t UInt32, s String)) ENGINE = TinyLog;
-INSERT INTO a VALUES (1, [1], ['a']);
+CREATE table tb (x Int32, t Tuple(s String, t Int32)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO tb VALUES (1, ('a', 1));
 
-CREATE table b (x Int32, t Nested(s String, t Int32)) ENGINE = TinyLog;
-INSERT INTO b VALUES (1, ['a'], [1]);
+CREATE table ttta (x Int32, t Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO ttta VALUES (1, ((((1, 's'), 's'), 's'), 's')), (2, ((((2, 's'), 's'), 's'), 's'));
 
-CREATE table aa (x Int32, t Tuple(t UInt32, s String)) ENGINE = TinyLog;
-INSERT INTO aa VALUES (1, (1, 'a'));
+CREATE table tttb (x Int32, t Tuple(t Tuple(t Tuple(t Tuple(t Int32, s String), s String), s String), s String)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO tttb VALUES (2, ((((2, 's'), 's'), 's'), 's')), (3, ((((3, 's'), 's'), 's'), 's'));
 
-CREATE table bb (x Int32, t Tuple(s String, t Int32)) ENGINE = TinyLog;
-INSERT INTO bb VALUES (1, ('a', 1));
+CREATE table na (x Int32, t Nested(t UInt32, s String)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO na VALUES (1, [1], ['a']);
+
+CREATE table nb (x Int32, t Nested(s String, t Int32)) ENGINE = MergeTree ORDER BY x;
+INSERT INTO nb VALUES (1, ['a'], [1]);
+
+CREATE TABLE nnna ( x UInt64, t Nested(t Nested(t Nested(t Nested(t Int32, s String), s String), s String), s String) ) ENGINE = MergeTree ORDER BY x;
+INSERT INTO nnna VALUES (1, [[([([(1,'d')],'d')], 's')]], ['s']);
+
+CREATE TABLE nnnb ( x UInt64, t Nested(t Nested(t Nested(t Nested(t UInt32, s String), s String), s String), s String) ) ENGINE = MergeTree ORDER BY x;
+INSERT INTO nnnb VALUES (1, [[([([(1,'d')],'d')], 's')]], ['s']);
 
 {% for allow_experimental_analyzer in [0, 1] -%}
 {% for join_use_nulls in [0, 1] -%}
@@ -22,78 +37,118 @@ INSERT INTO bb VALUES (1, ('a', 1));
 SET allow_experimental_analyzer = {{ allow_experimental_analyzer }};
 SET join_use_nulls = {{ join_use_nulls }};
 
-SELECT t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t;
-SELECT a.t.t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t;
+SELECT t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t;
+SELECT na.t.t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT [(1, 'a')] :: Nested(t Int32, s String) AS t) AS t;
 
-SELECT t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT 1 AS t) AS t;
-SELECT a.t.t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT 1 AS t) AS t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a, (SELECT 1 AS t) AS t;
+SELECT t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT 1 AS t) AS t;
+SELECT na.t.t FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT 1 AS t) AS t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na, (SELECT 1 AS t) AS t;
 
-SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS a FULL JOIN (SELECT [1] :: Array(Int32) AS t) AS b ON b.t = a.t.t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM (SELECT [(1, 'a')] :: Nested(t UInt32, s String) AS t) AS na FULL JOIN (SELECT [1] :: Array(Int32) AS t) AS nb ON nb.t = na.t.t; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
 
-SELECT t FROM a FULL JOIN b USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT t.t FROM a FULL JOIN b USING (t.t);
-SELECT a.t.t FROM a FULL JOIN b USING (t.t);
-SELECT a.t FROM a FULL JOIN b USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT b.t.t FROM a FULL JOIN b USING (t.t);
-SELECT b.t FROM a FULL JOIN b USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM a FULL JOIN b USING (t.t);
+SELECT t FROM na FULL JOIN nb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t FROM na FULL JOIN nb USING (t.t);
+SELECT na.t.t FROM na FULL JOIN nb USING (t.t);
+SELECT na.t FROM na FULL JOIN nb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT nb.t.t FROM na FULL JOIN nb USING (t.t);
+SELECT nb.t FROM na FULL JOIN nb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM na FULL JOIN nb USING (t.t);
 
-SELECT t FROM a FULL JOIN b USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT t.t FROM a FULL JOIN b USING (x);
-SELECT a.t.t FROM a FULL JOIN b USING (x);
-SELECT a.t FROM a FULL JOIN b USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT b.t.t FROM a FULL JOIN b USING (x);
-SELECT b.t FROM a FULL JOIN b USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM a FULL JOIN b USING (x);
+SELECT t FROM na FULL JOIN nb USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t FROM na FULL JOIN nb USING (x);
+SELECT na.t.t FROM na FULL JOIN nb USING (x);
+SELECT na.t FROM na FULL JOIN nb USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT nb.t.t FROM na FULL JOIN nb USING (x);
+SELECT nb.t FROM na FULL JOIN nb USING (x); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM na FULL JOIN nb USING (x);
 
-SELECT t FROM a, b; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT t.t FROM a, b;
-SELECT a.t.t FROM a, b;
-SELECT a.t FROM a, b; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT b.t.t FROM a, b;
-SELECT b.t FROM a, b; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM a, b;
+SELECT t FROM na, nb; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t FROM na, nb;
+SELECT na.t.t FROM na, nb;
+SELECT na.t FROM na, nb; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT nb.t.t FROM na, nb;
+SELECT nb.t FROM na, nb; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM na, nb;
 
-SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as a FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as b USING (t);
-SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as a, (SELECT 1 as t ) as t;
+SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as na FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as nb USING (t);
+SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as na, (SELECT 1 as t ) as t;
 
 -- TODO: enable after https://github.com/ClickHouse/ClickHouse/pull/49555
--- SELECT t.t FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as a, (SELECT 1 as t ) as t;
+-- SELECT t.t FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as na, (SELECT 1 as t ) as t;
 
-SELECT t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT t.t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT aa.t.t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT aa.t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT bb.t.t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT bb.t FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
-SELECT * FROM aa FULL JOIN bb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT ta.t.t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT ta.t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT tb.t.t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT tb.t FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT * FROM ta FULL JOIN tb USING (t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
 
-SELECT t FROM aa FULL JOIN bb USING (x);
-SELECT t.t FROM aa FULL JOIN bb USING (x);
-SELECT aa.t.t FROM aa FULL JOIN bb USING (x);
-SELECT aa.t FROM aa FULL JOIN bb USING (x);
-SELECT bb.t.t FROM aa FULL JOIN bb USING (x);
-SELECT bb.t FROM aa FULL JOIN bb USING (x);
-SELECT * FROM aa FULL JOIN bb USING (x);
+SELECT t FROM ta FULL JOIN tb USING (x);
+SELECT t.t FROM ta FULL JOIN tb USING (x);
+SELECT ta.t.t FROM ta FULL JOIN tb USING (x);
+SELECT ta.t FROM ta FULL JOIN tb USING (x);
+SELECT tb.t.t FROM ta FULL JOIN tb USING (x);
+SELECT tb.t FROM ta FULL JOIN tb USING (x);
+SELECT * FROM ta FULL JOIN tb USING (x);
 
-SELECT t FROM aa, bb;
-SELECT t.t FROM aa, bb;
-SELECT aa.t.t FROM aa, bb;
-SELECT aa.t FROM aa, bb;
-SELECT bb.t.t FROM aa, bb;
-SELECT bb.t FROM aa, bb;
-SELECT * FROM aa, bb;
+SELECT t FROM ta, tb;
+SELECT t.t FROM ta, tb;
+SELECT ta.t.t FROM ta, tb;
+SELECT ta.t FROM ta, tb;
+SELECT tb.t.t FROM ta, tb;
+SELECT tb.t FROM ta, tb;
+SELECT * FROM ta, tb;
 
-SELECT 1 FROM a FULL JOIN b USING (t); -- { serverError UNSUPPORTED_METHOD,UNKNOWN_IDENTIFIER }
+SELECT t FROM ttta, tttb;
+SELECT t.t.t FROM ttta, tttb;
+SELECT t.t.t.t.t FROM ttta, tttb;
+
+SELECT t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t);
+SELECT t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t);
+SELECT t.t.t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t);
+
+SELECT t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+
+SELECT t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t.t.t as e, toTypeName(e) FROM ttta FULL JOIN tttb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+
+SELECT t FROM nnna, nnnb; -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t FROM nnna, nnnb;
+SELECT t.t.t.t.t FROM nnna, nnnb;
+
+SELECT t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t); -- { serverError UNKNOWN_IDENTIFIER,UNSUPPORTED_METHOD }
+SELECT t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t); -- { serverError UNKNOWN_IDENTIFIER,UNSUPPORTED_METHOD }
+SELECT t.t.t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t); -- { serverError UNKNOWN_IDENTIFIER,UNSUPPORTED_METHOD }
+
+SELECT t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+
+SELECT t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+SELECT t.t.t.t.t as e, toTypeName(e) FROM nnna FULL JOIN nnnb USING (t.t.t.t.t); -- {% if not allow_experimental_analyzer %}{ serverError UNKNOWN_IDENTIFIER }{% endif %}
+
+SELECT 1 FROM na FULL JOIN nb USING (t); -- { serverError UNSUPPORTED_METHOD,UNKNOWN_IDENTIFIER }
 
 -- TODO: should work in analyzer?
-SELECT t.t FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as a FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as b USING (t); -- { serverError UNKNOWN_IDENTIFIER,ILLEGAL_COLUMN }
-SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as a FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as b USING (t.t); -- { serverError UNKNOWN_IDENTIFIER,UNSUPPORTED_METHOD }
+-- (works with tables though)
+SELECT t.t FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as na FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as nb USING (t); -- { serverError UNKNOWN_IDENTIFIER,ILLEGAL_COLUMN }
+SELECT * FROM (SELECT (1, 's') :: Tuple(t Int32, s String) as t ) as na FULL JOIN (SELECT (1, 's') :: Tuple(t UInt32, s String) as t ) as nb USING (t.t); -- { serverError UNKNOWN_IDENTIFIER,UNSUPPORTED_METHOD }
+
 
 {% endfor -%}
 {% endfor -%}
 
-DROP TABLE IF EXISTS a;
-DROP TABLE IF EXISTS b;
+DROP TABLE IF EXISTS ta;
+DROP TABLE IF EXISTS tb;
+DROP TABLE IF EXISTS ttta;
+DROP TABLE IF EXISTS tttb;
+DROP TABLE IF EXISTS na;
+DROP TABLE IF EXISTS nb;
+DROP TABLE IF EXISTS nnna;
+DROP TABLE IF EXISTS nnnb;

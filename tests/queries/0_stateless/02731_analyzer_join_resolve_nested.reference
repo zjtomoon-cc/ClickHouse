@@ -30,6 +30,29 @@
 ('a',1)
 ('a',1)
 1	(1,'a')	1	('a',1)
+((((1,'s'),'s'),'s'),'s')
+((((1,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((1,'s'),'s')
+((1,'s'),'s')
+((2,'s'),'s')
+((2,'s'),'s')
+1
+1
+2
+2
+((((1,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((2,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((3,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	UInt32
+2	UInt32
+0	UInt32
+[[[([(1,'d')],'d')]]]
+[[[[1]]]]
 [(1,'a')]
 [(1,'a')]	[(1,'a')]
 [(1,'a')]
@@ -62,6 +85,29 @@
 ('a',1)
 ('a',1)
 1	(1,'a')	1	('a',1)
+((((1,'s'),'s'),'s'),'s')
+((((1,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((1,'s'),'s')
+((1,'s'),'s')
+((2,'s'),'s')
+((2,'s'),'s')
+1
+1
+2
+2
+((((1,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((2,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((3,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	Nullable(UInt32)
+2	Nullable(UInt32)
+\N	Nullable(UInt32)
+[[[([(1,'d')],'d')]]]
+[[[[1]]]]
 [(1,'a')]
 [1]
 [(1,'a')]	[(1,'a')]
@@ -113,6 +159,54 @@
 1
 ('a',1)
 1	(1,'a')	1	('a',1)
+((((1,'s'),'s'),'s'),'s')
+((((1,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((1,'s'),'s')
+((1,'s'),'s')
+((2,'s'),'s')
+((2,'s'),'s')
+1
+1
+2
+2
+((((1,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((2,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((3,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	UInt32
+2	UInt32
+0	UInt32
+((((1,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((2,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((0,''),''),''),'')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((1,'s'),'s')	Tuple(Tuple(Int64, String), String)
+((2,'s'),'s')	Tuple(Tuple(Int64, String), String)
+((3,'s'),'s')	Tuple(Tuple(Int64, String), String)
+1	UInt32
+2	UInt32
+0	UInt32
+((((1,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((2,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((0,''),''),''),'')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	Int64
+2	Int64
+3	Int64
+[([([([(1,'d')],'d')],'s')],'s')]
+[[[([(1,'d')],'d')]]]
+[[[[1]]]]
+[([([([(1,'d')],'d')],'s')],'s')]	Array(Tuple(t Array(Tuple(t Array(Tuple(t Array(Tuple(t Int32, s String)), s String)), s String)), s String))
+[[[([(1,'d')],'d')]]]	Array(Array(Array(Tuple(Array(Tuple(Int64, String)), String))))
+[[[[1]]]]	Array(Array(Array(Array(Int32))))
+[([([([(1,'d')],'d')],'s')],'s')]	Array(Tuple(t Array(Tuple(t Array(Tuple(t Array(Tuple(t Int32, s String)), s String)), s String)), s String))
+[[[([(1,'d')],'d')]]]	Array(Array(Nested(t Nested(t Int32, s String), s String)))
+[[[[1]]]]	Array(Array(Array(Array(Int64))))
 [(1,'a')]
 [1]
 [(1,'a')]	[(1,'a')]
@@ -164,3 +258,51 @@
 1
 ('a',1)
 1	(1,'a')	1	('a',1)
+((((1,'s'),'s'),'s'),'s')
+((((1,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((((2,'s'),'s'),'s'),'s')
+((1,'s'),'s')
+((1,'s'),'s')
+((2,'s'),'s')
+((2,'s'),'s')
+1
+1
+2
+2
+((((1,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((2,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((((3,'s'),'s'),'s'),'s')	Tuple(Tuple(Tuple(Tuple(Int64, String), String), String), String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	Nullable(UInt32)
+2	Nullable(UInt32)
+\N	Nullable(UInt32)
+((((1,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((2,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((0,''),''),''),'')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((1,'s'),'s')	Tuple(Tuple(Int64, String), String)
+((2,'s'),'s')	Tuple(Tuple(Int64, String), String)
+((3,'s'),'s')	Tuple(Tuple(Int64, String), String)
+1	Nullable(UInt32)
+2	Nullable(UInt32)
+\N	Nullable(UInt32)
+((((1,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((2,'s'),'s'),'s'),'s')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((((0,''),''),''),'')	Tuple(t Tuple(t Tuple(t Tuple(t UInt32, s String), s String), s String), s String)
+((1,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((2,'s'),'s')	Tuple(t Tuple(t UInt32, s String), s String)
+((0,''),'')	Tuple(t Tuple(t UInt32, s String), s String)
+1	Nullable(Int64)
+2	Nullable(Int64)
+3	Nullable(Int64)
+[([([([(1,'d')],'d')],'s')],'s')]
+[[[([(1,'d')],'d')]]]
+[[[[1]]]]
+[([([([(1,'d')],'d')],'s')],'s')]	Array(Tuple(t Array(Tuple(t Array(Tuple(t Array(Tuple(t Int32, s String)), s String)), s String)), s String))
+[[[([(1,'d')],'d')]]]	Array(Array(Array(Tuple(Array(Tuple(Int64, String)), String))))
+[[[[1]]]]	Array(Array(Array(Array(Int32))))
+[([([([(1,'d')],'d')],'s')],'s')]	Array(Tuple(t Array(Tuple(t Array(Tuple(t Array(Tuple(t Int32, s String)), s String)), s String)), s String))
+[[[([(1,'d')],'d')]]]	Array(Array(Nested(t Nested(t Int32, s String), s String)))
+[[[[1]]]]	Array(Array(Array(Array(Int64))))

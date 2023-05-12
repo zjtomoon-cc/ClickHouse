@@ -2992,7 +2992,7 @@ QueryTreeNodePtr QueryAnalyzer::tryResolveIdentifierFromTableExpression(const Id
     return {};
 }
 
-static QueryTreeNodePtr updateColumnTypeFromUsingIfNeeded(
+QueryTreeNodePtr updateColumnTypeFromUsingIfNeeded(
     QueryTreeNodePtr resolved_identifier,
     const std::unordered_map<std::string, ColumnNodePtr> & join_using_column_name_to_column_node,
     IdentifierResolveScope & scope)
@@ -6658,9 +6658,10 @@ void QueryAnalyzer::resolveJoin(QueryTreeNodePtr & join_node, IdentifierResolveS
 
             if (result_left_table_expression->getNodeType() != QueryTreeNodeType::COLUMN)
                 throw Exception(ErrorCodes::UNSUPPORTED_METHOD,
-                    "JOIN {} using identifier '{}' must be resolved into column node from left table expression. In scope {}",
+                    "JOIN {} using identifier '{}' must be resolved into column node from left table expression, got '{}' In scope {}",
                     join_node_typed.formatASTForErrorMessage(),
                     identifier_full_name,
+                    result_left_table_expression->formatASTForErrorMessage(),
                     scope.scope_node->formatASTForErrorMessage());
 
             auto result_right_table_expression = tryResolveIdentifierFromJoinTreeNode(identifier_lookup, join_node_typed.getRightTableExpression(), scope);
