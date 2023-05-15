@@ -3163,6 +3163,22 @@ QueryTreeNodePtr QueryAnalyzer::tryResolveIdentifierFromJoin(const IdentifierLoo
                 scope.scope_node->formatASTForErrorMessage());
         }
     }
+    else if (left_resolved_identifier && right_resolved_identifier)
+    {
+        /// Both resolved identifiers are not columns
+        if (scope.joins_count != 1 || !scope.context->getSettingsRef().single_join_prefer_left_table)
+        {
+            throw Exception(ErrorCodes::AMBIGUOUS_IDENTIFIER,
+                "JOIN {} ambiguous identifier '{}'. In scope {}",
+                table_expression_node->formatASTForErrorMessage(),
+                identifier_lookup.identifier.getFullName(),
+                scope.scope_node->formatASTForErrorMessage());
+        }
+
+        /// Prefer left table, but update argument type to super type if needed
+        resolved_side = JoinTableSide::Left;
+        resolved_identifier = updateColumnTypeFromUsingIfNeeded(left_resolved_identifier, join_using_column_name_to_column_node, scope);
+    }
     else if (left_resolved_identifier)
     {
         resolved_side = JoinTableSide::Left;
