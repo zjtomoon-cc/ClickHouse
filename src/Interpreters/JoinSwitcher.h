@@ -76,6 +76,8 @@ public:
         return join->hasDelayedBlocks();
     }
 
+    String descriptionForPlan() const override { return "AutoSwitchJoin"; }
+
 private:
     JoinPtr join;
     SizeLimits limits;
