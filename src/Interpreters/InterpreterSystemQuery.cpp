@@ -9,6 +9,7 @@
 #include <Common/ShellCommand.h>
 #include <Common/CurrentMetrics.h>
 #include <Common/FailPoint.h>
+#include <Common/PageCache.h>
 #include <Interpreters/Cache/FileCacheFactory.h>
 #include <Interpreters/Cache/FileCache.h>
 #include <Interpreters/Context.h>
@@ -436,6 +437,13 @@ BlockIO InterpreterSystemQuery::execute()
             size_t num_rows = res_columns[0]->size();
             auto source = std::make_shared<SourceFromSingleChunk>(sample_block, Chunk(std::move(res_columns), num_rows));
             result.pipeline = QueryPipeline(std::move(source));
+            break;
+        }
+        case Type::DROP_PAGE_CACHE:
+        {
+            getContext()->checkAccess(AccessType::SYSTEM_DROP_PAGE_CACHE);
+
+            getContext()->dropPageCache();
             break;
         }
         case Type::DROP_SCHEMA_CACHE:
@@ -1081,6 +1089,7 @@ AccessRightsElements InterpreterSystemQuery::getRequiredAccessForDDLOnCluster() 
         case Type::DROP_INDEX_UNCOMPRESSED_CACHE:
         case Type::DROP_FILESYSTEM_CACHE:
         case Type::SYNC_FILESYSTEM_CACHE:
+        case Type::DROP_PAGE_CACHE:
         case Type::DROP_SCHEMA_CACHE:
 #if USE_AWS_S3
         case Type::DROP_S3_CLIENT_CACHE:

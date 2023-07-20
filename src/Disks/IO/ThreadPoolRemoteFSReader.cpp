@@ -100,8 +100,10 @@ IAsynchronousReader::Result ThreadPoolRemoteFSReader::execute(Request request)
     IAsynchronousReader::Result read_result;
     if (result)
     {
-        read_result.size = reader.buffer().size();
-        read_result.offset = reader.offset();
+        chassert(reader.buffer().begin() >= request.buf);
+        chassert(reader.buffer().end() <= request.buf + request.size);
+        read_result.offset = reader.position() - request.buf;
+        read_result.size = reader.buffer().end() - request.buf;
         ProfileEvents::increment(ProfileEvents::ThreadpoolReaderReadBytes, read_result.size);
     }
 

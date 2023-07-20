@@ -1,6 +1,7 @@
 #include <Disks/ObjectStorages/DiskObjectStorage.h>
 #include <Disks/ObjectStorages/DiskObjectStorageCommon.h>
 
+#include <IO/CachedInMemoryReadBufferFromFile.h>
 #include <IO/ReadBufferFromString.h>
 #include <IO/ReadBufferFromFile.h>
 #include <IO/ReadBufferFromEmptyFile.h>
@@ -13,9 +14,11 @@
 #include <Common/logger_useful.h>
 #include <Common/filesystemHelpers.h>
 #include <Common/CurrentMetrics.h>
+#include <Common/PageCache.h>
 #include <Disks/ObjectStorages/DiskObjectStorageRemoteMetadataRestoreHelper.h>
 #include <Disks/ObjectStorages/DiskObjectStorageTransaction.h>
 #include <Disks/FakeDiskTransaction.h>
+#include <Disks/IO/AsynchronousBoundedReadBuffer.h>
 #include <Common/ThreadPool.h>
 #include <Poco/Util/AbstractConfiguration.h>
 #include <Interpreters/Context.h>
@@ -69,7 +72,9 @@ DiskObjectStorage::DiskObjectStorage(
     , read_resource_name(config.getString(config_prefix + ".read_resource", ""))
     , write_resource_name(config.getString(config_prefix + ".write_resource", ""))
     , metadata_helper(std::make_unique<DiskObjectStorageRemoteMetadataRestoreHelper>(this, ReadSettings{}, WriteSettings{}))
-{}
+{
+    applyNewSettingsImpl(config, config_prefix);
+}
 
 StoredObjects DiskObjectStorage::getStorageObjects(const String & local_path) const
 {
@@ -516,16 +521,51 @@ std::unique_ptr<ReadBufferFromFileBase> DiskObjectStorage::readFile(
     std::optional<size_t> read_hint,
     std::optional<size_t> file_size) const
 {
-    auto storage_objects = metadata_storage->getStorageObjects(path);
+    const auto objects = metadata_storage->getStorageObjects(path);
 
     const bool file_can_be_empty = !file_size.has_value() || *file_size == 0;
-
-    if (storage_objects.empty() && file_can_be_empty)
+    if (objects.empty() && file_can_be_empty)
         return std::make_unique<ReadBufferFromEmptyFile>();
 
+    ReadSettings read_settings = object_storage->getAdjustedSettingsFromMetadataFile(updateResourceLink(settings, getReadResourceName()), path);
+    read_settings.enable_page_cache = read_settings.page_cache != nullptr && (enable_page_cache || read_settings.force_enable_page_cache);
+
+    if (read_settings.enable_page_cache)
+    {
+        const bool async_read = settings.remote_fs_method == RemoteFSReadMethod::threadpool;
+
+        ReadSettings modified_settings{read_settings};
+        modified_settings.remote_fs_method = RemoteFSReadMethod::read;
+        std::unique_ptr<ReadBufferFromFileBase> impl = object_storage->readObjects(
+            objects,
+            modified_settings,
+            read_hint,
+            file_size);
+
+        /// We currently don't detect if a file is modified. If we need to use this cache for mutable
+        /// files, we'd have to put some unique identifier in cache_key.file_version.
+        auto cache_key = FileChunkAddress {
+            .disk_name = getName(),
+            .path = path };
+        impl = std::make_unique<CachedInMemoryReadBufferFromFile>(
+            cache_key, read_settings.page_cache, std::move(impl), read_settings);
+
+        if (async_read)
+        {
+            auto global_context = Context::getGlobalContextInstance();
+            auto & reader = global_context->getThreadPoolReader(FilesystemReaderType::ASYNCHRONOUS_REMOTE_FS_READER);
+            impl = std::make_unique<AsynchronousBoundedReadBuffer>(
+                std::move(impl), reader, object_storage->patchSettings(read_settings),
+                global_context->getAsyncReadCounters(),
+                global_context->getFilesystemReadPrefetchesLog());
+        }
+
+        return impl;
+    }
+
     return object_storage->readObjects(
-        storage_objects,
-        object_storage->getAdjustedSettingsFromMetadataFile(updateResourceLink(settings, getReadResourceName()), path),
+        objects,
+        read_settings,
         read_hint,
         file_size);
 }
@@ -583,6 +623,12 @@ void DiskObjectStorage::applyNewSettings(
     }
 
     IDisk::applyNewSettings(config, context_, config_prefix, disk_map);
+    applyNewSettingsImpl(config, config_prefix);
+}
+
+void DiskObjectStorage::applyNewSettingsImpl(const Poco::Util::AbstractConfiguration & config, const String & config_prefix)
+{
+    enable_page_cache = config.getBool(config_prefix + ".enable_page_cache", false);
 }
 
 void DiskObjectStorage::restoreMetadataIfNeeded(
