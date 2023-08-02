@@ -17,6 +17,7 @@
 #include <IO/S3/Requests.h>
 #include <IO/S3/getObjectInfo.h>
 #include <Interpreters/Context.h>
+#include <Interpreters/S3BlobLog.h>
 
 #include <aws/s3/model/StorageClass.h>
 
@@ -82,6 +83,7 @@ WriteBufferFromS3::WriteBufferFromS3(
     const String & key_,
     size_t buf_size_,
     const S3Settings::RequestSettings & request_settings_,
+    S3BlobLogWriter blob_log_,
     std::optional<std::map<String, String>> object_metadata_,
     ThreadPoolCallbackRunner<void> schedule_,
     const WriteSettings & write_settings_)
@@ -100,6 +102,7 @@ WriteBufferFromS3::WriteBufferFromS3(
               std::move(schedule_),
               upload_settings.max_inflight_parts_for_one_file,
               limitedLog))
+    , blob_log(blob_log_)
 {
     LOG_TRACE(limitedLog, "Create WriteBufferFromS3, {}", getShortLogDetails());
 
@@ -388,6 +391,8 @@ void WriteBufferFromS3::createMultipartUpload()
     }
 
     multipart_upload_id = outcome.GetResult().GetUploadId();
+
+    blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadCreate, bucket, key, "");
     LOG_TRACE(limitedLog, "Multipart upload has created. {}", getShortLogDetails());
 }
 
@@ -421,6 +426,8 @@ void WriteBufferFromS3::abortMultipartUpload()
         ProfileEvents::increment(ProfileEvents::WriteBufferFromS3RequestsErrors, 1);
         throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
     }
+
+    blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadAbort, bucket, key, "");
 
     LOG_WARNING(log, "Multipart upload has aborted successfully. {}", getVerboseLogDetails());
 }
@@ -516,6 +523,8 @@ void WriteBufferFromS3::writePart(WriteBufferFromS3::PartData && data)
             write_settings.resource_link.accumulate(cost); // We assume no resource was used in case of failure
             throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
         }
+
+        blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadWrite, bucket, key, "");
 
         multipart_tags[part_number-1] = outcome.GetResult().GetETag();
 

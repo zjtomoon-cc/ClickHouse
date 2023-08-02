@@ -151,7 +151,8 @@ void KeeperSnapshotManagerS3::uploadSnapshotImpl(const SnapshotFileInfo & snapsh
                 s3_client->uri.bucket,
                 key,
                 DBMS_DEFAULT_BUFFER_SIZE,
-                request_settings_1
+                request_settings_1,
+                /* blob_log */ {}
             );
         };
 

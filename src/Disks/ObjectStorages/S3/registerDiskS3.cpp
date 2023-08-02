@@ -130,12 +130,17 @@ void registerDiskS3(DiskFactory & factory, bool global_skip_access_check)
             if (config.getBool(config_prefix + ".send_metadata", false))
                 throw Exception(ErrorCodes::BAD_ARGUMENTS, "s3_plain does not supports send_metadata");
 
-            s3_storage = std::make_shared<S3PlainObjectStorage>(std::move(client), std::move(settings), uri.version_id, s3_capabilities, uri.bucket, uri.endpoint);
+            s3_storage = std::make_shared<S3PlainObjectStorage>(std::move(client), std::move(settings), uri.version_id, s3_capabilities, uri.bucket, uri.endpoint, S3BlobLogWriter(context->getS3BlobLog(), name));
             metadata_storage = std::make_shared<MetadataStorageFromPlainObjectStorage>(s3_storage, uri.key);
         }
         else
         {
-            s3_storage = std::make_shared<S3ObjectStorage>(std::move(client), std::move(settings), uri.version_id, s3_capabilities, uri.bucket, uri.endpoint);
+            s3_storage = std::make_shared<S3ObjectStorage>(
+                std::move(client), std::move(settings),
+                uri.version_id, s3_capabilities,
+                uri.bucket, uri.endpoint,
+                S3BlobLogWriter(context->getS3BlobLog(), name));
+
             auto [metadata_path, metadata_disk] = prepareForLocalMetadata(name, config, config_prefix, context);
             metadata_storage = std::make_shared<MetadataStorageFromDisk>(metadata_disk, uri.key);
         }

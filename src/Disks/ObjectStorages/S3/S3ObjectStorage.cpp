@@ -15,6 +15,8 @@
 #include <IO/S3/copyS3File.h>
 #include <Interpreters/Context.h>
 #include <Interpreters/threadPoolCallbackRunner.h>
+#include <Interpreters/S3BlobLog.h>
+
 #include <Disks/ObjectStorages/S3/diskSettings.h>
 
 #include <Common/ProfileEvents.h>
@@ -251,6 +253,7 @@ std::unique_ptr<WriteBufferFromFileBase> S3ObjectStorage::writeObject( /// NOLIN
         object.remote_path,
         buf_size,
         settings_ptr->request_settings,
+        s3_blob_log,
         attributes,
         std::move(scheduler),
         disk_write_settings);
@@ -320,7 +323,7 @@ void S3ObjectStorage::removeObjectImpl(const StoredObject & object, bool if_exis
 
     throwIfUnexpectedError(outcome, if_exists);
 
-    LOG_TRACE(log, "Object with path {} was removed from S3", object.remote_path);
+    s3_blob_log.addEvent(S3BlobLogElement::EventType::Delete, bucket, object.remote_path, object.local_path);
 }
 
 void S3ObjectStorage::removeObjectsImpl(const StoredObjects & objects, bool if_exists)
@@ -368,7 +371,8 @@ void S3ObjectStorage::removeObjectsImpl(const StoredObjects & objects, bool if_e
 
             throwIfUnexpectedError(outcome, if_exists);
 
-            LOG_TRACE(log, "Objects with paths [{}] were removed from S3", keys);
+            for (const auto & object : objects)
+                s3_blob_log.addEvent(S3BlobLogElement::EventType::Delete, bucket, object.remote_path, object.local_path);
         }
     }
 }
@@ -498,7 +502,8 @@ std::unique_ptr<IObjectStorage> S3ObjectStorage::cloneObjectStorage(
     return std::make_unique<S3ObjectStorage>(
         std::move(new_client), std::move(new_s3_settings),
         version_id, s3_capabilities, new_namespace,
-        endpoint);
+        endpoint,
+        S3BlobLogWriter(context->getS3BlobLog()));
 }
 
 S3ObjectStorage::Clients::Clients(std::shared_ptr<S3::Client> client_, const S3ObjectStorageSettings & settings)
