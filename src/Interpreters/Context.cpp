@@ -3369,6 +3369,15 @@ std::shared_ptr<AsynchronousInsertLog> Context::getAsynchronousInsertLog() const
     return shared->system_logs->asynchronous_insert_log;
 }
 
+std::vector<ISystemLog *> Context::getBlobStorageLog() const
+{
+    auto lock = getLock();
+
+    if (!shared->system_logs)
+        return {};
+    return shared->system_logs->blob_storage_log;
+}
+
 std::vector<ISystemLog *> Context::getSystemLogs() const
 {
     auto lock = getLock();
@@ -3378,14 +3387,6 @@ std::vector<ISystemLog *> Context::getSystemLogs() const
     return shared->system_logs->logs;
 }
 
-std::shared_ptr<S3BlobLog> Context::getS3BlobLog() const
-{
-    auto lock = getLock();
-
-    if (!shared->system_logs)
-        return {};
-    return shared->system_logs->s3_blob_log;
-}
 
 CompressionCodecPtr Context::chooseCompressionCodec(size_t part_size, double part_size_ratio) const
 {

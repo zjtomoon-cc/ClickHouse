@@ -49,7 +49,7 @@ class ProcessorsProfileLog;
 class FilesystemCacheLog;
 class FilesystemReadPrefetchesLog;
 class AsynchronousInsertLog;
-class S3BlobLog;
+class BlobStorageLog;
 
 /// System logs should be destroyed in destructor of the last Context and before tables,
 ///  because SystemLog destruction makes insert query while flushing data into underlying tables
@@ -85,7 +85,7 @@ struct SystemLogs
     /// Used to log processors profiling
     std::shared_ptr<ProcessorsProfileLog> processors_profile_log;
     std::shared_ptr<AsynchronousInsertLog> asynchronous_insert_log;
-    std::shared_ptr<S3BlobLog> s3_blob_log;
+    std::shared_ptr<BlobStorageLog> blob_storage_log;
 
     std::vector<ISystemLog *> logs;
 };

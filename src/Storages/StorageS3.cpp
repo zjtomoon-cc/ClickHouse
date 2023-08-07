@@ -755,7 +755,7 @@ public:
                 key,
                 DBMS_DEFAULT_BUFFER_SIZE,
                 configuration_.request_settings,
-                S3BlobLogWriter(context->getS3BlobLog()),
+                BlobStorageLogWriter(context->getBlobStorageLog()),
                 std::nullopt,
                 threadPoolCallbackRunner<void>(getIOThreadPool().get(), "S3ParallelWrite"),
                 context->getWriteSettings()),

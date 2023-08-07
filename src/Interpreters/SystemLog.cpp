@@ -10,7 +10,7 @@
 #include <Interpreters/OpenTelemetrySpanLog.h>
 #include <Interpreters/PartLog.h>
 #include <Interpreters/ProcessorsProfileLog.h>
-#include <Interpreters/S3BlobLog.h>
+#include <Interpreters/BlobStorageLog.h>
 #include <Interpreters/QueryLog.h>
 #include <Interpreters/QueryThreadLog.h>
 #include <Interpreters/QueryViewsLog.h>
@@ -288,7 +288,7 @@ SystemLogs::SystemLogs(ContextPtr global_context, const Poco::Util::AbstractConf
         global_context, "system", "transactions_info_log", config, "transactions_info_log");
     processors_profile_log = createSystemLog<ProcessorsProfileLog>(global_context, "system", "processors_profile_log", config, "processors_profile_log");
     asynchronous_insert_log = createSystemLog<AsynchronousInsertLog>(global_context, "system", "asynchronous_insert_log", config, "asynchronous_insert_log");
-    s3_blob_log = createSystemLog<S3BlobLog>(global_context, "system", "s3_blob_log", config, "s3_blob_log");
+    blob_storage_log = createSystemLog<BlobStorageLog>(global_context, "system", "blob_storage_log", config, "blob_storage_log");
 
     if (query_log)
         logs.emplace_back(query_log.get());
@@ -327,8 +327,8 @@ SystemLogs::SystemLogs(ContextPtr global_context, const Poco::Util::AbstractConf
         logs.emplace_back(filesystem_read_prefetches_log.get());
     if (asynchronous_insert_log)
         logs.emplace_back(asynchronous_insert_log.get());
-    if (s3_blob_log)
-        logs.emplace_back(s3_blob_log.get());
+    if (blob_storage_log)
+        logs.emplace_back(blob_storage_log.get());
 
     try
     {

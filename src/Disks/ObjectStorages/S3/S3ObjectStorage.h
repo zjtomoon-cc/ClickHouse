@@ -9,7 +9,7 @@
 #include <memory>
 #include <Storages/StorageS3Settings.h>
 #include <Common/MultiVersion.h>
-#include <Interpreters/S3BlobLog.h>
+#include <Interpreters/BlobStorageLog.h>
 
 
 namespace DB
@@ -61,13 +61,13 @@ private:
         const S3Capabilities & s3_capabilities_,
         String bucket_,
         String connection_string,
-        S3BlobLogWriter && s3_blob_log_)
+        BlobStorageLogWriter && blob_storage_log_)
         : bucket(bucket_)
         , clients(std::make_unique<Clients>(std::move(client_), *s3_settings_))
         , s3_settings(std::move(s3_settings_))
         , s3_capabilities(s3_capabilities_)
         , version_id(std::move(version_id_))
-        , s3_blob_log(std::move(s3_blob_log_))
+        , blob_storage_log(std::move(blob_storage_log_))
     {
         data_source_description.type = DataSourceType::S3;
         data_source_description.description = connection_string;
@@ -186,7 +186,7 @@ private:
     Poco::Logger * log;
     DataSourceDescription data_source_description;
 
-    S3BlobLogWriter s3_blob_log;
+    BlobStorageLogWriter blob_storage_log;
 };
 
 /// Do not encode keys, store as-is, and do not require separate disk for metadata.

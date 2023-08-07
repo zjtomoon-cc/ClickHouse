@@ -17,7 +17,7 @@
 #include <IO/S3/Requests.h>
 #include <IO/S3/getObjectInfo.h>
 #include <Interpreters/Context.h>
-#include <Interpreters/S3BlobLog.h>
+#include <Interpreters/BlobStorageLog.h>
 
 #include <aws/s3/model/StorageClass.h>
 
@@ -83,7 +83,7 @@ WriteBufferFromS3::WriteBufferFromS3(
     const String & key_,
     size_t buf_size_,
     const S3Settings::RequestSettings & request_settings_,
-    S3BlobLogWriter blob_log_,
+    BlobStorageLogWriter blob_log_,
     std::optional<std::map<String, String>> object_metadata_,
     ThreadPoolCallbackRunner<void> schedule_,
     const WriteSettings & write_settings_)
@@ -392,7 +392,7 @@ void WriteBufferFromS3::createMultipartUpload()
 
     multipart_upload_id = outcome.GetResult().GetUploadId();
 
-    blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadCreate, bucket, key, "");
+    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadCreate, bucket, key, "");
     LOG_TRACE(limitedLog, "Multipart upload has created. {}", getShortLogDetails());
 }
 
@@ -427,7 +427,7 @@ void WriteBufferFromS3::abortMultipartUpload()
         throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
     }
 
-    blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadAbort, bucket, key, "");
+    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadAbort, bucket, key, "");
 
     LOG_WARNING(log, "Multipart upload has aborted successfully. {}", getVerboseLogDetails());
 }
@@ -524,7 +524,7 @@ void WriteBufferFromS3::writePart(WriteBufferFromS3::PartData && data)
             throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
         }
 
-        blob_log.addEvent(S3BlobLogElement::EventType::MultiPartUploadWrite, bucket, key, "");
+        blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadWrite, bucket, key, "");
 
         multipart_tags[part_number-1] = outcome.GetResult().GetETag();
 

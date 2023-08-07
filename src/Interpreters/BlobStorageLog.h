@@ -9,7 +9,7 @@
 namespace DB
 {
 
-struct S3BlobLogElement
+struct BlobStorageLogElement
 {
     enum class EventType : Int8
     {
@@ -31,9 +31,9 @@ struct S3BlobLogElement
 
     String referring_local_path;
 
-    S3BlobLogElement() = default;
+    BlobStorageLogElement() = default;
 
-    static std::string name() { return "S3BlobLog"; }
+    static std::string name() { return "BlobStorageLog"; }
 
     static NamesAndTypesList getNamesAndTypes();
     static NamesAndAliases getNamesAndAliases() { return {}; }
@@ -42,29 +42,29 @@ struct S3BlobLogElement
 };
 
 
-class S3BlobLog : public SystemLog<S3BlobLogElement>
+class BlobStorageLog : public SystemLog<BlobStorageLogElement>
 {
-    using SystemLog<S3BlobLogElement>::SystemLog;
+    using SystemLog<BlobStorageLogElement>::SystemLog;
 };
 
-/// Writes events to S3BlobLog
+/// Writes events to BlobStorageLog
 /// May contains some context information
-class S3BlobLogWriter
+class BlobStorageLogWriter
 {
-    std::shared_ptr<S3BlobLog> log;
+    std::shared_ptr<BlobStorageLog> log;
 
     String disk_name;
     String referring_local_path;
 
 public:
-    S3BlobLogWriter() = default;
+    BlobStorageLogWriter() = default;
 
-    explicit S3BlobLogWriter(std::shared_ptr<S3BlobLog> log_, const String & disk_name_ = "", const String & referring_local_path_ = "")
+    explicit BlobStorageLogWriter(std::shared_ptr<BlobStorageLog> log_, const String & disk_name_ = "", const String & referring_local_path_ = "")
         : log(std::move(log_)), disk_name(disk_name_), referring_local_path(referring_local_path_)
     {}
 
     void addEvent(
-        S3BlobLogElement::EventType event_type,
+        BlobStorageLogElement::EventType event_type,
         const String & bucket,
         const String & remote_path,
         const String & local_path = "");

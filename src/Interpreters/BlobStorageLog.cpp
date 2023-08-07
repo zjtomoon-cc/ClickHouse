@@ -1,4 +1,4 @@
-#include <Interpreters/S3BlobLog.h>
+#include <Interpreters/BlobStorageLog.h>
 #include <DataTypes/DataTypesNumber.h>
 #include <DataTypes/DataTypeString.h>
 #include <DataTypes/DataTypeEnum.h>
@@ -9,7 +9,7 @@
 namespace DB
 {
 
-NamesAndTypesList S3BlobLogElement::getNamesAndTypes()
+NamesAndTypesList BlobStorageLogElement::getNamesAndTypes()
 {
     return {
         {
@@ -36,7 +36,7 @@ NamesAndTypesList S3BlobLogElement::getNamesAndTypes()
 }
 
 
-void S3BlobLogElement::appendToBlock(MutableColumns & columns) const
+void BlobStorageLogElement::appendToBlock(MutableColumns & columns) const
 {
     size_t i = 0;
 
@@ -54,17 +54,17 @@ void S3BlobLogElement::appendToBlock(MutableColumns & columns) const
 
     assert([&]()
     {
-        size_t total_colums = S3BlobLogElement::getNamesAndTypes().size();
+        size_t total_colums = BlobStorageLogElement::getNamesAndTypes().size();
         return i == total_colums;
     }());
 }
 
-void S3BlobLogWriter::addEvent(S3BlobLogElement::EventType event_type, const String & bucket, const String & remote_path, const String & local_path)
+void BlobStorageLogWriter::addEvent(BlobStorageLogElement::EventType event_type, const String & bucket, const String & remote_path, const String & local_path)
 {
     if (!log)
         return;
 
-    S3BlobLogElement element;
+    BlobStorageLogElement element;
     element.event_type = event_type;
 
     element.bucket = bucket;
