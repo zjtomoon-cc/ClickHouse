@@ -32,6 +32,7 @@ class ASTStorage;
     M(HandleKafkaErrorMode, kafka_handle_error_mode, HandleKafkaErrorMode::DEFAULT, "How to handle errors for Kafka engine. Possible values: default, stream.", 0) \
     M(Bool, kafka_commit_on_select, false, "Commit messages when select query is made", 0) \
     M(UInt64, kafka_max_rows_per_message, 1, "The maximum number of rows produced in one kafka message for row-based formats.", 0) \
+    M(String, keeper_path, "", "TODO(antaljanosbenjamin)", 0) \
 
     /** TODO: */
     /* https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md */
