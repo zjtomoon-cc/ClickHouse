@@ -80,7 +80,8 @@ def remove_broken_detached_part_impl(table, node, expect_broken_prefix):
     )
 
     result = node.query(
-        f"CHECK TABLE {table}", settings={"check_query_single_value_result": 0}
+        f"CHECK TABLE {table}",
+        settings={"check_query_single_value_result": 0, "max_threads": 1},
     )
     assert "all_3_3_0\t0" in result
 
