@@ -61,7 +61,7 @@ private:
         const S3Capabilities & s3_capabilities_,
         String bucket_,
         String connection_string,
-        BlobStorageLogWriter && blob_storage_log_)
+        BlobStorageLogWriter blob_storage_log_)
         : bucket(bucket_)
         , clients(std::make_unique<Clients>(std::move(client_), *s3_settings_))
         , s3_settings(std::move(s3_settings_))

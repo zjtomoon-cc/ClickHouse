@@ -3369,7 +3369,7 @@ std::shared_ptr<AsynchronousInsertLog> Context::getAsynchronousInsertLog() const
     return shared->system_logs->asynchronous_insert_log;
 }
 
-std::vector<ISystemLog *> Context::getBlobStorageLog() const
+std::shared_ptr<BlobStorageLog> Context::getBlobStorageLog() const
 {
     auto lock = getLock();
 

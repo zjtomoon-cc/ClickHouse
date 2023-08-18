@@ -8,7 +8,7 @@
 #include <IO/S3Common.h>
 #include <Storages/StorageS3Settings.h>
 #include <Interpreters/Context_fwd.h>
-
+#include <Interpreters/BlobStorageLog.h>
 
 namespace DB
 {
@@ -32,6 +32,8 @@ private:
     const std::shared_ptr<S3::Client> client;
     S3Settings::RequestSettings request_settings;
     const DataSourceDescription data_source_description;
+
+    BlobStorageLogWriter blob_storage_log;
 };
 
 
@@ -61,6 +63,8 @@ private:
     S3Settings::RequestSettings request_settings;
     std::optional<bool> supports_batch_delete;
     const DataSourceDescription data_source_description;
+
+    BlobStorageLogWriter blob_storage_log;
 };
 
 }

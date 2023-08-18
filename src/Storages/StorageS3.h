@@ -22,6 +22,7 @@
 #include <Storages/Cache/SchemaCache.h>
 #include <Storages/StorageConfiguration.h>
 #include <Storages/prepareReadingFromFormat.h>
+#include <Interpreters/BlobStorageLog.h>
 
 namespace Aws::S3
 {
@@ -340,6 +341,7 @@ private:
     std::optional<FormatSettings> format_settings;
     ASTPtr partition_by;
 
+    BlobStorageLogWriter blob_storage_log;
     using KeysWithInfo = StorageS3Source::KeysWithInfo;
 
     static std::shared_ptr<StorageS3Source::IIterator> createFileIterator(

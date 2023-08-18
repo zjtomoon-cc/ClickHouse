@@ -113,6 +113,7 @@ BackupReaderS3::BackupReaderS3(
     , client(makeS3Client(s3_uri_, access_key_id_, secret_access_key_, context_))
     , request_settings(context_->getStorageS3Settings().getSettings(s3_uri.uri.toString()).request_settings)
     , data_source_description{DataSourceType::S3, s3_uri.endpoint, false, false}
+    , blob_storage_log(BlobStorageLogWriter(context_->getBlobStorageLog()))
 {
     request_settings.updateFromSettings(context_->getSettingsRef());
     request_settings.max_single_read_retries = context_->getSettingsRef().s3_max_single_read_retries; // FIXME: Avoid taking value for endpoint
@@ -167,6 +168,7 @@ void BackupReaderS3::copyFileToDisk(const String & path_in_backup, size_t file_s
                 /* dest_bucket= */ blob_path[1],
                 /* dest_key= */ blob_path[0],
                 request_settings,
+                blob_storage_log,
                 object_attributes,
                 threadPoolCallbackRunner<void>(getBackupsIOThreadPool().get(), "BackupReaderS3"),
                 /* for_disk_s3= */ true);
@@ -197,6 +199,7 @@ BackupWriterS3::BackupWriterS3(
     , client(makeS3Client(s3_uri_, access_key_id_, secret_access_key_, context_))
     , request_settings(context_->getStorageS3Settings().getSettings(s3_uri.uri.toString()).request_settings)
     , data_source_description{DataSourceType::S3, s3_uri.endpoint, false, false}
+    , blob_storage_log(BlobStorageLogWriter(context_->getBlobStorageLog()))
 {
     request_settings.updateFromSettings(context_->getSettingsRef());
     request_settings.max_single_read_retries = context_->getSettingsRef().s3_max_single_read_retries; // FIXME: Avoid taking value for endpoint
@@ -226,6 +229,7 @@ void BackupWriterS3::copyFileFromDisk(const String & path_in_backup, DiskPtr src
                 s3_uri.bucket,
                 fs::path(s3_uri.key) / path_in_backup,
                 request_settings,
+                blob_storage_log,
                 {},
                 threadPoolCallbackRunner<void>(getBackupsIOThreadPool().get(), "BackupWriterS3"));
             return; /// copied!
@@ -238,8 +242,8 @@ void BackupWriterS3::copyFileFromDisk(const String & path_in_backup, DiskPtr src
 
 void BackupWriterS3::copyDataToFile(const String & path_in_backup, const CreateReadBufferFunction & create_read_buffer, UInt64 start_pos, UInt64 length)
 {
-    copyDataToS3File(create_read_buffer, start_pos, length, client, s3_uri.bucket, fs::path(s3_uri.key) / path_in_backup, request_settings, {},
-                     threadPoolCallbackRunner<void>(getBackupsIOThreadPool().get(), "BackupWriterS3"));
+    copyDataToS3File(create_read_buffer, start_pos, length, client, s3_uri.bucket, fs::path(s3_uri.key) / path_in_backup, request_settings,
+                     blob_storage_log, {}, threadPoolCallbackRunner<void>(getBackupsIOThreadPool().get(), "BackupWriterS3"));
 }
 
 BackupWriterS3::~BackupWriterS3() = default;
@@ -273,7 +277,7 @@ std::unique_ptr<WriteBuffer> BackupWriterS3::writeFile(const String & file_name)
         fs::path(s3_uri.key) / file_name,
         DBMS_DEFAULT_BUFFER_SIZE,
         request_settings,
-        BlobStorageLogWriter(),
+        blob_storage_log,
         std::nullopt,
         threadPoolCallbackRunner<void>(getBackupsIOThreadPool().get(), "BackupWriterS3"),
         write_settings);
@@ -283,8 +287,16 @@ void BackupWriterS3::removeFile(const String & file_name)
 {
     S3::DeleteObjectRequest request;
     request.SetBucket(s3_uri.bucket);
-    request.SetKey(fs::path(s3_uri.key) / file_name);
+    auto key = fs::path(s3_uri.key) / file_name;
+    request.SetKey(key);
+
     auto outcome = client->DeleteObject(request);
+
+    blob_storage_log.addEvent(
+        BlobStorageLogElement::EventType::Delete,
+        s3_uri.bucket, key, {},
+        outcome.IsSuccess() ? nullptr : &outcome.GetError());
+
     if (!outcome.IsSuccess() && !isNotFoundError(outcome.GetError().GetErrorType()))
         throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
 }
@@ -343,6 +355,12 @@ void BackupWriterS3::removeFilesBatch(const Strings & file_names)
         request.SetDelete(delkeys);
 
         auto outcome = client->DeleteObjects(request);
+
+        auto * error = outcome.IsSuccess() ? nullptr : &outcome.GetError();
+        auto time_now = std::chrono::system_clock::now();
+        for (const auto & objid : current_chunk)
+            blob_storage_log.addEvent(BlobStorageLogElement::EventType::Delete, s3_uri.bucket, objid.GetKey(), {}, error, time_now);
+
         if (!outcome.IsSuccess() && !isNotFoundError(outcome.GetError().GetErrorType()))
             throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
     }

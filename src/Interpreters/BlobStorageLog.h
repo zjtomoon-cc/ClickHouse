@@ -5,6 +5,12 @@
 #include <Core/NamesAndTypes.h>
 #include <Core/NamesAndAliases.h>
 #include <Poco/Message.h>
+#include <chrono>
+
+namespace Aws::S3
+{
+    class S3Error;
+}
 
 namespace DB
 {
@@ -21,17 +27,21 @@ struct BlobStorageLogElement
         MultiPartUploadAbort = 6,
     };
 
-    time_t event_time = 0;
-    Decimal64 event_time_microseconds = 0;
     EventType event_type;
+
+    String query_id;
+    UInt64 thread_id = 0;
 
     String disk_name;
     String bucket;
     String remote_path;
-
     String referring_local_path;
 
-    BlobStorageLogElement() = default;
+    Int32 error_code = -1; /// negative if no error
+    String error_msg;
+
+    using EvenTime = std::chrono::time_point<std::chrono::system_clock>;
+    EvenTime event_time;
 
     static std::string name() { return "BlobStorageLog"; }
 
@@ -47,27 +57,44 @@ class BlobStorageLog : public SystemLog<BlobStorageLogElement>
     using SystemLog<BlobStorageLogElement>::SystemLog;
 };
 
+using BlobStorageLogPtr = std::shared_ptr<BlobStorageLog>;
+
 /// Writes events to BlobStorageLog
 /// May contains some context information
 class BlobStorageLogWriter
 {
-    std::shared_ptr<BlobStorageLog> log;
-
-    String disk_name;
-    String referring_local_path;
+    BlobStorageLogPtr log;
 
 public:
     BlobStorageLogWriter() = default;
 
-    explicit BlobStorageLogWriter(std::shared_ptr<BlobStorageLog> log_, const String & disk_name_ = "", const String & referring_local_path_ = "")
-        : log(std::move(log_)), disk_name(disk_name_), referring_local_path(referring_local_path_)
+    BlobStorageLogWriter(BlobStorageLogPtr log_)
+        : log(std::move(log_))
+    {}
+
+    explicit BlobStorageLogWriter(
+        BlobStorageLogPtr log_,
+        const String & disk_name_,
+        const String & query_id_,
+        const String & referring_local_path_)
+        : log(std::move(log_))
+        , disk_name(disk_name_)
+        , query_id(query_id_)
+        , referring_local_path(referring_local_path_)
     {}
 
     void addEvent(
         BlobStorageLogElement::EventType event_type,
         const String & bucket,
         const String & remote_path,
-        const String & local_path = "");
+        const String & local_path,
+        const Aws::S3::S3Error * error,
+        BlobStorageLogElement::EvenTime time_now = {});
+
+    /// Optional context information
+    String disk_name;
+    String query_id;
+    String referring_local_path;
 };
 
 }

@@ -120,6 +120,9 @@ void registerDiskS3(DiskFactory & factory, bool global_skip_access_check)
         MetadataStoragePtr metadata_storage;
         auto settings = getSettings(config, config_prefix, context);
         auto client = getClient(config, config_prefix, context, *settings);
+
+        BlobStorageLogWriter blob_storage_log(context->getBlobStorageLog());
+        blob_storage_log.disk_name = name;
         if (type == "s3_plain")
         {
             /// send_metadata changes the filenames (includes revision), while
@@ -130,7 +133,11 @@ void registerDiskS3(DiskFactory & factory, bool global_skip_access_check)
             if (config.getBool(config_prefix + ".send_metadata", false))
                 throw Exception(ErrorCodes::BAD_ARGUMENTS, "s3_plain does not supports send_metadata");
 
-            s3_storage = std::make_shared<S3PlainObjectStorage>(std::move(client), std::move(settings), uri.version_id, s3_capabilities, uri.bucket, uri.endpoint, BlobStorageLogWriter(context->getBlobStorageLog(), name));
+            s3_storage = std::make_shared<S3PlainObjectStorage>(
+                std::move(client), std::move(settings),
+                uri.version_id, s3_capabilities,
+                uri.bucket, uri.endpoint,
+                std::move(blob_storage_log));
             metadata_storage = std::make_shared<MetadataStorageFromPlainObjectStorage>(s3_storage, uri.key);
         }
         else
@@ -139,7 +146,7 @@ void registerDiskS3(DiskFactory & factory, bool global_skip_access_check)
                 std::move(client), std::move(settings),
                 uri.version_id, s3_capabilities,
                 uri.bucket, uri.endpoint,
-                BlobStorageLogWriter(context->getBlobStorageLog(), name));
+                std::move(blob_storage_log));
 
             auto [metadata_path, metadata_disk] = prepareForLocalMetadata(name, config, config_prefix, context);
             metadata_storage = std::make_shared<MetadataStorageFromDisk>(metadata_disk, uri.key);

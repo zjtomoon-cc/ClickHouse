@@ -246,6 +246,9 @@ std::unique_ptr<WriteBufferFromFileBase> S3ObjectStorage::writeObject( /// NOLIN
         scheduler = threadPoolCallbackRunner<void>(getThreadPoolWriter(), "VFSWrite");
 
     auto clients_ = clients.get();
+    BlobStorageLogWriter blob_storage_log_writer = blob_storage_log;
+    blob_storage_log_writer.referring_local_path = object.local_path;
+
     return std::make_unique<WriteBufferFromS3>(
         clients_->client,
         clients_->client_with_long_timeout,
@@ -253,7 +256,7 @@ std::unique_ptr<WriteBufferFromFileBase> S3ObjectStorage::writeObject( /// NOLIN
         object.remote_path,
         buf_size,
         settings_ptr->request_settings,
-        blob_storage_log,
+        std::move(blob_storage_log_writer),
         attributes,
         std::move(scheduler),
         disk_write_settings);
@@ -320,10 +323,11 @@ void S3ObjectStorage::removeObjectImpl(const StoredObject & object, bool if_exis
     request.SetBucket(bucket);
     request.SetKey(object.remote_path);
     auto outcome = client_ptr->DeleteObject(request);
+    blob_storage_log.addEvent(BlobStorageLogElement::EventType::Delete,
+                              bucket, object.remote_path, object.local_path,
+                              outcome.IsSuccess() ? nullptr : &outcome.GetError());
 
     throwIfUnexpectedError(outcome, if_exists);
-
-    blob_storage_log.addEvent(BlobStorageLogElement::EventType::Delete, bucket, object.remote_path, object.local_path);
 }
 
 void S3ObjectStorage::removeObjectsImpl(const StoredObjects & objects, bool if_exists)
@@ -369,10 +373,16 @@ void S3ObjectStorage::removeObjectsImpl(const StoredObjects & objects, bool if_e
             request.SetDelete(delkeys);
             auto outcome = client_ptr->DeleteObjects(request);
 
-            throwIfUnexpectedError(outcome, if_exists);
-
+            auto * outcome_error = outcome.IsSuccess() ? nullptr : &outcome.GetError();
+            auto time_now = std::chrono::system_clock::now();
             for (const auto & object : objects)
-                blob_storage_log.addEvent(BlobStorageLogElement::EventType::Delete, bucket, object.remote_path, object.local_path);
+            {
+                blob_storage_log.addEvent(BlobStorageLogElement::EventType::Delete,
+                                          bucket, object.remote_path, object.local_path,
+                                          outcome_error, time_now);
+            }
+
+            throwIfUnexpectedError(outcome, if_exists);
         }
     }
 }
@@ -440,7 +450,7 @@ void S3ObjectStorage::copyObjectToAnotherObjectStorage( // NOLINT
         auto size = S3::getObjectSize(*client_ptr, bucket, object_from.remote_path, {}, settings_ptr->request_settings, /* for_disk_s3= */ true);
         auto scheduler = threadPoolCallbackRunner<void>(getThreadPoolWriter(), "S3ObjStor_copy");
         copyS3File(client_ptr, bucket, object_from.remote_path, 0, size, dest_s3->bucket, object_to.remote_path,
-                   settings_ptr->request_settings, object_to_attributes, scheduler, /* for_disk_s3= */ true);
+                   settings_ptr->request_settings, blob_storage_log, object_to_attributes, scheduler, /* for_disk_s3= */ true);
     }
     else
     {
@@ -456,7 +466,7 @@ void S3ObjectStorage::copyObject( // NOLINT
     auto size = S3::getObjectSize(*client_ptr, bucket, object_from.remote_path, {}, settings_ptr->request_settings, /* for_disk_s3= */ true);
     auto scheduler = threadPoolCallbackRunner<void>(getThreadPoolWriter(), "S3ObjStor_copy");
     copyS3File(client_ptr, bucket, object_from.remote_path, 0, size, bucket, object_to.remote_path,
-               settings_ptr->request_settings, object_to_attributes, scheduler, /* for_disk_s3= */ true);
+               settings_ptr->request_settings, blob_storage_log, object_to_attributes, scheduler, /* for_disk_s3= */ true);
 }
 
 void S3ObjectStorage::setNewSettings(std::unique_ptr<S3ObjectStorageSettings> && s3_settings_)
@@ -502,8 +512,7 @@ std::unique_ptr<IObjectStorage> S3ObjectStorage::cloneObjectStorage(
     return std::make_unique<S3ObjectStorage>(
         std::move(new_client), std::move(new_s3_settings),
         version_id, s3_capabilities, new_namespace,
-        endpoint,
-        BlobStorageLogWriter(context->getBlobStorageLog()));
+        endpoint, blob_storage_log);
 }
 
 S3ObjectStorage::Clients::Clients(std::shared_ptr<S3::Client> client_, const S3ObjectStorageSettings & settings)

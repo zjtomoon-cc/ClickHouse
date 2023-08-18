@@ -16,7 +16,6 @@
 #include <IO/S3Common.h>
 #include <IO/S3/Requests.h>
 #include <IO/S3/getObjectInfo.h>
-#include <Interpreters/Context.h>
 #include <Interpreters/BlobStorageLog.h>
 
 #include <aws/s3/model/StorageClass.h>
@@ -383,6 +382,8 @@ void WriteBufferFromS3::createMultipartUpload()
     watch.stop();
 
     ProfileEvents::increment(ProfileEvents::WriteBufferFromS3Microseconds, watch.elapsedMicroseconds());
+    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadCreate, bucket, key, {},
+                      outcome.IsSuccess() ? nullptr : &outcome.GetError());
 
     if (!outcome.IsSuccess())
     {
@@ -392,7 +393,6 @@ void WriteBufferFromS3::createMultipartUpload()
 
     multipart_upload_id = outcome.GetResult().GetUploadId();
 
-    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadCreate, bucket, key, "");
     LOG_TRACE(limitedLog, "Multipart upload has created. {}", getShortLogDetails());
 }
 
@@ -421,13 +421,14 @@ void WriteBufferFromS3::abortMultipartUpload()
 
     ProfileEvents::increment(ProfileEvents::WriteBufferFromS3Microseconds, watch.elapsedMicroseconds());
 
+    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadCreate, bucket, key, {},
+                      outcome.IsSuccess() ? nullptr : &outcome.GetError());
+
     if (!outcome.IsSuccess())
     {
         ProfileEvents::increment(ProfileEvents::WriteBufferFromS3RequestsErrors, 1);
         throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
     }
-
-    blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadAbort, bucket, key, "");
 
     LOG_WARNING(log, "Multipart upload has aborted successfully. {}", getVerboseLogDetails());
 }
@@ -524,7 +525,8 @@ void WriteBufferFromS3::writePart(WriteBufferFromS3::PartData && data)
             throw S3Exception(outcome.GetError().GetMessage(), outcome.GetError().GetErrorType());
         }
 
-        blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadWrite, bucket, key, "");
+        blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadWrite, bucket, key, {},
+                          outcome.IsSuccess() ? nullptr : &outcome.GetError());
 
         multipart_tags[part_number-1] = outcome.GetResult().GetETag();
 
@@ -580,6 +582,8 @@ void WriteBufferFromS3::completeMultipartUpload()
 
         ProfileEvents::increment(ProfileEvents::WriteBufferFromS3Microseconds, watch.elapsedMicroseconds());
 
+        blob_log.addEvent(BlobStorageLogElement::EventType::MultiPartUploadComplete, bucket, key, {},
+                          outcome.IsSuccess() ? nullptr : &outcome.GetError());
         if (outcome.IsSuccess())
         {
             LOG_TRACE(limitedLog, "Multipart upload has completed. {}, Parts: {}", getShortLogDetails(), multipart_tags.size());
@@ -661,6 +665,8 @@ void WriteBufferFromS3::makeSinglepartUpload(WriteBufferFromS3::PartData && data
             rlock.unlock();
 
             ProfileEvents::increment(ProfileEvents::WriteBufferFromS3Microseconds, watch.elapsedMicroseconds());
+            blob_log.addEvent(BlobStorageLogElement::EventType::Upload, bucket, key, {},
+                              outcome.IsSuccess() ? nullptr : &outcome.GetError());
 
             if (outcome.IsSuccess())
             {

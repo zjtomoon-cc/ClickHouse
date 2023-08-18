@@ -294,6 +294,8 @@ void StorageS3QueueSource::deleteProcessedObject(const String & file_path)
     S3::DeleteObjectRequest request;
     request.WithKey(file_path).WithBucket(bucket);
     auto outcome = client->DeleteObject(request);
+
+    // blob_log.addEvent(/* TODO */)
     if (!outcome.IsSuccess())
     {
         const auto & err = outcome.GetError();
