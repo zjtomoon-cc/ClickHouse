@@ -988,6 +988,7 @@ RangesInDataParts MergeTreeDataSelectExecutor::filterPartsByPrimaryKeyAndSkipInd
     {
         auto mark_cache = context->getIndexMarkCache();
         auto uncompressed_cache = context->getIndexUncompressedCache();
+        auto secondary_index_cache = context->getSecondaryIndexCache();
 
         auto process_part = [&](size_t part_index)
         {
@@ -1029,6 +1030,7 @@ RangesInDataParts MergeTreeDataSelectExecutor::filterPartsByPrimaryKeyAndSkipInd
                     reader_settings,
                     mark_cache.get(),
                     uncompressed_cache.get(),
+                    secondary_index_cache.get(),
                     log);
 
                 stat.granules_dropped.fetch_add(total_granules - ranges.ranges.getNumberOfMarks(), std::memory_order_relaxed);
@@ -1050,7 +1052,7 @@ RangesInDataParts MergeTreeDataSelectExecutor::filterPartsByPrimaryKeyAndSkipInd
                     indices_and_condition.indices, indices_and_condition.condition,
                     part, ranges.ranges,
                     settings, reader_settings,
-                    mark_cache.get(), uncompressed_cache.get(), log);
+                    mark_cache.get(), uncompressed_cache.get(), secondary_index_cache.get(), log);
 
                 stat.total_granules.fetch_add(total_granules, std::memory_order_relaxed);
                 stat.granules_dropped.fetch_add(total_granules - ranges.ranges.getNumberOfMarks(), std::memory_order_relaxed);
@@ -1617,6 +1619,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingIndex(
     const MergeTreeReaderSettings & reader_settings,
     MarkCache * mark_cache,
     UncompressedCache * uncompressed_cache,
+    SecondaryIndexCache * secondary_index_cache,
     Poco::Logger * log)
 {
     if (!index_helper->getDeserializedFormat(part->getDataPartStorage(), index_helper->getFileName()))
@@ -1653,6 +1656,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingIndex(
         index_ranges,
         mark_cache,
         uncompressed_cache,
+        secondary_index_cache,
         reader_settings);
 
     MarkRanges res;
@@ -1671,13 +1675,10 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingIndex(
     {
         const MarkRange & index_range = index_ranges[i];
 
-        if (last_index_mark != index_range.begin || !granule)
-            reader.seek(index_range.begin);
-
         for (size_t index_mark = index_range.begin; index_mark < index_range.end; ++index_mark)
         {
             if (index_mark != index_range.begin || !granule || last_index_mark != index_range.begin)
-                granule = reader.read();
+                granule = reader.read(index_mark);
 
             auto ann_condition = std::dynamic_pointer_cast<IMergeTreeIndexConditionApproximateNearestNeighbor>(condition);
             if (ann_condition != nullptr)
@@ -1735,6 +1736,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingMergedIndex(
     const MergeTreeReaderSettings & reader_settings,
     MarkCache * mark_cache,
     UncompressedCache * uncompressed_cache,
+    SecondaryIndexCache * secondary_index_cache,
     Poco::Logger * log)
 {
     for (const auto & index_helper : indices)
@@ -1769,6 +1771,7 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingMergedIndex(
                 ranges,
                 mark_cache,
                 uncompressed_cache,
+                secondary_index_cache,
                 reader_settings));
     }
 
@@ -1785,17 +1788,13 @@ MarkRanges MergeTreeDataSelectExecutor::filterMarksUsingMergedIndex(
             range.begin / index_granularity,
             (range.end + index_granularity - 1) / index_granularity);
 
-        if (last_index_mark != index_range.begin || !granules_filled)
-            for (auto & reader : readers)
-                reader->seek(index_range.begin);
-
         for (size_t index_mark = index_range.begin; index_mark < index_range.end; ++index_mark)
         {
             if (index_mark != index_range.begin || !granules_filled || last_index_mark != index_range.begin)
             {
                 for (size_t i = 0; i < readers.size(); ++i)
                 {
-                    granules[i] = readers[i]->read();
+                    granules[i] = readers[i]->read(index_mark);
                     granules_filled = true;
                 }
             }
