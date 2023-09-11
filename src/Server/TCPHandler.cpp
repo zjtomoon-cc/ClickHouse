@@ -98,6 +98,7 @@ namespace DB::ErrorCodes
     extern const int AUTHENTICATION_FAILED;
     extern const int QUERY_WAS_CANCELLED;
     extern const int CLIENT_INFO_DOES_NOT_MATCH;
+    extern const int FUNCTION_NOT_ALLOWED;
 }
 
 namespace
@@ -885,7 +886,13 @@ void TCPHandler::processOrdinaryQueryWithProcessors()
     std::unique_lock progress_lock(task_callback_mutex, std::defer_lock);
 
     {
-        bool has_partial_result_setting = query_context->getSettingsRef().partial_result_update_duration_ms.totalMilliseconds() > 0;
+        const auto & settings = query_context->getSettingsRef();
+        bool has_partial_result_setting = settings.partial_result_update_duration_ms.totalMilliseconds() > 0;
+        if (has_partial_result_setting && !settings.allow_experimental_partial_result)
+            throw Exception(ErrorCodes::FUNCTION_NOT_ALLOWED,
+                "Partial results are not allowed by default, it's an experimental feature. "
+                "Setting 'allow_experimental_partial_result' must be enabled to use 'partial_result_update_duration_ms'");
+
         PullingAsyncPipelineExecutor executor(pipeline, has_partial_result_setting);
         CurrentMetrics::Increment query_thread_metric_increment{CurrentMetrics::QueryThread};
 
