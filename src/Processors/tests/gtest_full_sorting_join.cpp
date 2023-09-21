@@ -315,13 +315,13 @@ TEST(FullSortingJoin, AsofGeneratedTestData)
 try
 {
     std::vector<JoinKind> join_kinds = {JoinKind::Inner, JoinKind::Left};
-    auto join_kind = join_kinds[std::uniform_int_distribution<>(0, join_kinds.size() - 1)(rng)];
+    auto join_kind = join_kinds[std::uniform_int_distribution<size_t>(0, join_kinds.size() - 1)(rng)];
 
     std::vector<ASOFJoinInequality> asof_inequalities = {
         ASOFJoinInequality::Less, ASOFJoinInequality::LessOrEquals,
         // ASOFJoinInequality::Greater, ASOFJoinInequality::GreaterOrEquals,
     };
-    auto asof_inequality = asof_inequalities[std::uniform_int_distribution<>(0, asof_inequalities.size() - 1)(rng)];
+    auto asof_inequality = asof_inequalities[std::uniform_int_distribution<size_t>(0, asof_inequalities.size() - 1)(rng)];
 
     auto left_source_builder = SourceChunksBuilder({
         {std::make_shared<DataTypeUInt64>(), "k1"},
