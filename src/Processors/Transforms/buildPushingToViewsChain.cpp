@@ -272,6 +272,14 @@ Chain buildPushingToViewsChain(
 
         auto view_metadata_snapshot = view->getInMemoryMetadataPtr();
 
+        ContextMutablePtr local_select_context = Context::createCopy(select_context);
+        ContextMutablePtr local_insert_context = Context::createCopy(insert_context);
+        if (view_metadata_snapshot->hasDefiner())
+        {
+            local_select_context->setUser(view_metadata_snapshot->getDefinerID(local_select_context));
+            local_insert_context->setUser(view_metadata_snapshot->getDefinerID(local_insert_context));
+        }
+
         ASTPtr query;
         Chain out;
 
@@ -325,10 +333,10 @@ Chain buildPushingToViewsChain(
             Block header;
 
             /// Get list of columns we get from select query.
-            if (select_context->getSettingsRef().allow_experimental_analyzer)
-                header = InterpreterSelectQueryAnalyzer::getSampleBlock(query, select_context);
+            if (local_select_context->getSettingsRef().allow_experimental_analyzer)
+                header = InterpreterSelectQueryAnalyzer::getSampleBlock(query, local_select_context);
             else
-                header = InterpreterSelectQuery(query, select_context, SelectQueryOptions().analyze()).getSampleBlock();
+                header = InterpreterSelectQuery(query, local_select_context, SelectQueryOptions().analyze()).getSampleBlock();
 
             /// Insert only columns returned by select.
             Names insert_columns;
@@ -340,7 +348,7 @@ Chain buildPushingToViewsChain(
                     insert_columns.emplace_back(column.name);
             }
 
-            InterpreterInsertQuery interpreter(nullptr, insert_context, false, false, false);
+            InterpreterInsertQuery interpreter(nullptr, local_insert_context, false, false, false);
             out = interpreter.buildChain(inner_table, inner_metadata_snapshot, insert_columns, thread_status_holder, view_counter_ms);
             out.addStorageHolder(view);
             out.addStorageHolder(inner_table);
@@ -350,7 +358,7 @@ Chain buildPushingToViewsChain(
             runtime_stats->type = QueryViewsLogElement::ViewType::LIVE;
             query = live_view->getInnerQuery(); // Used only to log in system.query_views_log
             out = buildPushingToViewsChain(
-                view, view_metadata_snapshot, insert_context, ASTPtr(),
+                view, view_metadata_snapshot, local_insert_context, ASTPtr(),
                 /* no_destination= */ true,
                 thread_status_holder, running_group, view_counter_ms, async_insert, storage_header);
         }
@@ -359,13 +367,13 @@ Chain buildPushingToViewsChain(
             runtime_stats->type = QueryViewsLogElement::ViewType::WINDOW;
             query = window_view->getMergeableQuery(); // Used only to log in system.query_views_log
             out = buildPushingToViewsChain(
-                view, view_metadata_snapshot, insert_context, ASTPtr(),
+                view, view_metadata_snapshot, local_insert_context, ASTPtr(),
                 /* no_destination= */ true,
                 thread_status_holder, running_group, view_counter_ms, async_insert);
         }
         else
             out = buildPushingToViewsChain(
-                view, view_metadata_snapshot, insert_context, ASTPtr(),
+                view, view_metadata_snapshot, local_insert_context, ASTPtr(),
                 /* no_destination= */ false,
                 thread_status_holder, running_group, view_counter_ms, async_insert);
 
@@ -489,11 +497,12 @@ static QueryPipeline process(Block block, ViewRuntimeData & view, const ViewsDat
 
     if (local_context->getSettingsRef().allow_experimental_analyzer)
     {
-        InterpreterSelectQueryAnalyzer interpreter(view.query, local_context, local_context->getViewSource(), SelectQueryOptions());
+        /// Access rights for the all views was already verified in `buildPushingToViewsChain`, so we can skip it now.
+        InterpreterSelectQueryAnalyzer interpreter(view.query, local_context, local_context->getViewSource(), SelectQueryOptions().ignoreAccessCheck());
         pipeline = interpreter.buildQueryPipeline();
     }
     else
-    {   InterpreterSelectQuery interpreter(view.query, local_context, SelectQueryOptions());
+    {   InterpreterSelectQuery interpreter(view.query, local_context, SelectQueryOptions().ignoreAccessCheck());
         pipeline = interpreter.buildQueryPipeline();
     }
 

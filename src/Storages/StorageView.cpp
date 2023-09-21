@@ -90,7 +90,7 @@ bool hasJoin(const ASTSelectWithUnionQuery & ast)
 /** There are no limits on the maximum size of the result for the view.
   *  Since the result of the view is not the result of the entire query.
   */
-ContextPtr getViewContext(ContextPtr context)
+ContextPtr getViewContext(ContextPtr context, const StorageSnapshotPtr & storage_snapshot)
 {
     auto view_context = Context::createCopy(context);
     Settings view_settings = context->getSettings();
@@ -98,6 +98,8 @@ ContextPtr getViewContext(ContextPtr context)
     view_settings.max_result_bytes = 0;
     view_settings.extremes = false;
     view_context->setSettings(view_settings);
+    if (storage_snapshot->metadata->hasDefiner())
+        view_context->setUser(storage_snapshot->metadata->getDefinerID(context));
     return view_context;
 }
 
@@ -127,6 +129,7 @@ StorageView::StorageView(
     StorageInMemoryMetadata storage_metadata;
     storage_metadata.setColumns(columns_);
     storage_metadata.setComment(comment);
+    storage_metadata.setDefiner(query.sql_security);
 
     if (!query.select)
         throw Exception(ErrorCodes::INCORRECT_QUERY, "SELECT query is not specified for {}", getName());
@@ -180,13 +183,13 @@ void StorageView::read(
 
     if (context->getSettingsRef().allow_experimental_analyzer)
     {
-        InterpreterSelectQueryAnalyzer interpreter(current_inner_query, getViewContext(context), options);
+        InterpreterSelectQueryAnalyzer interpreter(current_inner_query, getViewContext(context, storage_snapshot), options);
         interpreter.addStorageLimits(*query_info.storage_limits);
         query_plan = std::move(interpreter).extractQueryPlan();
     }
     else
     {
-        InterpreterSelectWithUnionQuery interpreter(current_inner_query, getViewContext(context), options, column_names);
+        InterpreterSelectWithUnionQuery interpreter(current_inner_query, getViewContext(context, storage_snapshot), options, column_names);
         interpreter.addStorageLimits(*query_info.storage_limits);
         interpreter.buildQueryPlan(query_plan);
     }

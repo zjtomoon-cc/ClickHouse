@@ -13,6 +13,25 @@
 namespace DB
 {
 
+void ASTSQLSecurity::formatImpl(const FormatSettings & settings, FormatState & state, FormatStateStacked frame) const
+{
+    if (!definer && !is_definer_current_user)
+        return;
+
+    settings.ostr << (settings.hilite ? hilite_keyword : "") << " DEFINER" << (settings.hilite ? hilite_none : "");
+    settings.ostr << " = ";
+    if (definer)
+        definer->formatImpl(settings, state, frame);
+    else
+        settings.ostr << "CURRENT_USER";
+
+    settings.ostr << (settings.hilite ? hilite_keyword : "") << " SQL SECURITY" << (settings.hilite ? hilite_none : "");
+    if (type == SQLSecurity::INVOKER)
+        settings.ostr << " INVOKER";
+    else
+        settings.ostr << " DEFINER";
+}
+
 ASTPtr ASTStorage::clone() const
 {
     auto res = std::make_shared<ASTStorage>(*this);
@@ -293,10 +312,12 @@ void ASTCreateQuery::formatQueryImpl(const FormatSettings & settings, FormatStat
         else if (is_window_view)
             what = "WINDOW VIEW";
 
-        settings.ostr
-            << (settings.hilite ? hilite_keyword : "")
-                << action << " "
-                << (temporary ? "TEMPORARY " : "")
+        settings.ostr << (settings.hilite ? hilite_keyword : "") << action << (settings.hilite ? hilite_none : "");
+        if (sql_security)
+            sql_security->formatImpl(settings, state, frame);
+
+        settings.ostr << " ";
+        settings.ostr << (settings.hilite ? hilite_keyword : "") << (temporary ? " TEMPORARY " : "")
                 << what << " "
                 << (if_not_exists ? "IF NOT EXISTS " : "")
             << (settings.hilite ? hilite_none : "")
