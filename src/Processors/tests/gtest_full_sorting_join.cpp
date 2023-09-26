@@ -688,13 +688,13 @@ try
     String k2 = "";
     UInt64 left_t = 0;
 
-    auto key_num_total = std::uniform_int_distribution<>(1, 10)(rng);
+    auto key_num_total = std::uniform_int_distribution<>(1, 100)(rng);
     for (size_t key_num = 0; key_num < key_num_total; ++key_num)
     {
         generateNextKey(k1, k2);
 
         /// generate some rows with smaller left_t to check that they are not matched
-        size_t num_left_rows = std::bernoulli_distribution(0.5)(rng) ? std::uniform_int_distribution<>(1, 3)(rng) : 0;
+        size_t num_left_rows = std::bernoulli_distribution(0.5)(rng) ? std::uniform_int_distribution<>(1, 10)(rng) : 0;
         for (size_t i = 0; i < num_left_rows; ++i)
         {
             left_t += std::uniform_int_distribution<>(1, 10)(rng);
@@ -704,7 +704,10 @@ try
                 expected.push_back(-10 * left_t);
         }
 
-        size_t num_right_matches = std::uniform_int_distribution<>(1, 3)(rng);
+        if (std::bernoulli_distribution(0.1)(rng))
+            continue;
+
+        size_t num_right_matches = std::uniform_int_distribution<>(1, 10)(rng);
         auto right_t = left_t + std::uniform_int_distribution<>(isStrict(asof_inequality) ? 0 : 1, 10)(rng);
         for (size_t j = 0; j < num_right_matches; ++j)
         {
@@ -715,7 +718,7 @@ try
 
         /// next left_t should be greater than (or equals) right_t to match with previous rows
         left_t = right_t + std::uniform_int_distribution<>(isStrict(asof_inequality) ? 1 : 0, 10)(rng);
-        size_t num_left_matches = std::uniform_int_distribution<>(1, 3)(rng);
+        size_t num_left_matches = std::uniform_int_distribution<>(1, 10)(rng);
         for (size_t j = 0; j < num_left_matches; ++j)
         {
             left_t += std::uniform_int_distribution<>(0, 3)(rng);
@@ -728,10 +731,6 @@ try
         left_source_builder.getSource(), right_source_builder.getSource(),
         /* key_length = */ 3,
         join_kind, JoinStrictness::Asof, asof_inequality));
-
-    std::cerr << dumpBlock(left_source_builder.getSource()) << std::endl;
-    std::cerr << dumpBlock(right_source_builder.getSource()) << std::endl;
-    std::cerr << dumpBlock(result_block) << std::endl;
 
     assertColumnVectorEq<Int64>(expected, result_block, "t1.attr");
 

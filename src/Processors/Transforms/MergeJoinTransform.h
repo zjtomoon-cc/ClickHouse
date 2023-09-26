@@ -167,7 +167,12 @@ public:
     void set(const FullMergeJoinCursor & rcursor, size_t rpos);
     void reset();
 
-    bool hasValue() const { return !value.empty(); }
+    bool hasMatch(const FullMergeJoinCursor & cursor, ASOFJoinInequality asof_inequality)
+    {
+        if (value.empty())
+            return false;
+        return key.asofMatch(cursor, asof_inequality);
+    }
 
     JoinKeyRow key;
     Chunk value;

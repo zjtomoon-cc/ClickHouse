@@ -372,9 +372,9 @@ String FullMergeJoinCursor::dump() const
         }
     }
 
-    return fmt::format("cursor {} / {} {}| [{}]",
+    return fmt::format("<{}/{}{}>[{}]",
         cursor.getRow(), cursor.rows,
-        recieved_all_blocks ? "(finished) " : "",
+        recieved_all_blocks ? "(finished)" : "",
         fmt::join(row_dump, ", "));
 }
 
@@ -664,6 +664,7 @@ std::optional<MergeJoinAlgorithm::Status> MergeJoinAlgorithm::handleAsofJoinStat
 {
     if (strictness != JoinStrictness::Asof)
         return {};
+
     if (!cursors[1]->fullyCompleted())
         return {};
 
@@ -673,32 +674,27 @@ std::optional<MergeJoinAlgorithm::Status> MergeJoinAlgorithm::handleAsofJoinStat
 
     MutableColumns result_cols = getEmptyResultColumns();
 
-    while (asof_join_state.hasValue() && left_cursor->isValid())
+    while (left_cursor->isValid() && asof_join_state.hasMatch(left_cursor, asof_inequality))
     {
-        if (asof_join_state.key.asofMatch(left_cursor, asof_inequality))
-        {
-            size_t i = 0;
-            for (const auto & col : left_columns)
-                result_cols[i++]->insertFrom(*col, lpos);
-            for (const auto & col : asof_join_state.value.getColumns())
-                result_cols[i++]->insertFrom(*col, asof_join_state.value_row);
-            chassert(i == result_cols.size());
-        }
-        else
-        {
-            asof_join_state.reset();
-        }
+        size_t i = 0;
+        for (const auto & col : left_columns)
+            result_cols[i++]->insertFrom(*col, lpos);
+        for (const auto & col : asof_join_state.value.getColumns())
+            result_cols[i++]->insertFrom(*col, asof_join_state.value_row);
+        chassert(i == result_cols.size());
+        left_cursor->next();
+    }
 
-        if (isLeft(kind))
-        {
-            /// return row with default values at right side
-            size_t i = 0;
-            for (const auto & col : left_columns)
-                result_cols[i++]->insertFrom(*col, lpos);
-            for (; i < result_cols.size(); ++i)
-                result_cols[i]->insertDefault();
-            chassert(i == result_cols.size());
-        }
+    while (isLeft(kind) && left_cursor->isValid())
+    {
+        /// return row with default values at right side
+        size_t i = 0;
+        for (const auto & col : left_columns)
+            result_cols[i++]->insertFrom(*col, lpos);
+        for (; i < result_cols.size(); ++i)
+            result_cols[i]->insertDefault();
+        chassert(i == result_cols.size());
+
         left_cursor->next();
     }
 
@@ -1006,54 +1002,9 @@ MergeJoinAlgorithm::Status MergeJoinAlgorithm::asofJoin()
             if (asof_inequality == ASOFJoinInequality::Greater || asof_inequality == ASOFJoinInequality::GreaterOrEquals)
             {
                 /// Asof condition is not satisfied anymore, use last matched row from right table
-                if (asof_join_state.hasValue())
+                if (asof_join_state.hasMatch(left_cursor, asof_inequality))
                 {
                     // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-                    if (asof_join_state.key.asofMatch(left_cursor, asof_inequality))
-                    {
-                        // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-                        size_t i = 0;
-                        for (const auto & col : left_columns)
-                            result_cols[i++]->insertFrom(*col, lpos);
-                        for (const auto & col : asof_join_state.value.getColumns())
-                            result_cols[i++]->insertFrom(*col, asof_join_state.value_row);
-                        chassert(i == result_cols.size());
-                    }
-                    else
-                    {
-                        // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-                        asof_join_state.reset();
-                    }
-                }
-                else if (isLeft(kind))
-                {
-                    /// return row with default values at right side
-                    size_t i = 0;
-                    for (const auto & col : left_columns)
-                        result_cols[i++]->insertFrom(*col, lpos);
-                    for (; i < result_cols.size(); ++i)
-                        result_cols[i]->insertDefault();
-                    chassert(i == result_cols.size());
-                }
-                left_cursor->next();
-
-                // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-                continue;
-            }
-
-            throw Exception(ErrorCodes::NOT_IMPLEMENTED, "TODO: implement ASOF equality join");
-        }
-        else if (cmp < 0)
-        {
-            // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-            if (asof_join_state.hasValue())
-            {
-                // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-
-                if (asof_join_state.key.asofMatch(left_cursor, asof_inequality))
-                {
-                    // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-
                     size_t i = 0;
                     for (const auto & col : left_columns)
                         result_cols[i++]->insertFrom(*col, lpos);
@@ -1063,18 +1014,53 @@ MergeJoinAlgorithm::Status MergeJoinAlgorithm::asofJoin()
                 }
                 else
                 {
-                    // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
-
                     asof_join_state.reset();
+                    if (isLeft(kind))
+                    {
+                        // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
+
+                        /// return row with default values at right side
+                        size_t i = 0;
+                        for (const auto & col : left_columns)
+                            result_cols[i++]->insertFrom(*col, lpos);
+                        for (; i < result_cols.size(); ++i)
+                            result_cols[i]->insertDefault();
+                        chassert(i == result_cols.size());
+                    }
                 }
                 left_cursor->next();
+                // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
                 continue;
+            }
+
+            throw Exception(ErrorCodes::NOT_IMPLEMENTED, "TODO: implement ASOF equality join");
+        }
+        else if (cmp < 0)
+        {
+            // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
+            if (asof_join_state.hasMatch(left_cursor, asof_inequality))
+            {
+                // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
+
+                size_t i = 0;
+                for (const auto & col : left_columns)
+                    result_cols[i++]->insertFrom(*col, lpos);
+                for (const auto & col : asof_join_state.value.getColumns())
+                    result_cols[i++]->insertFrom(*col, asof_join_state.value_row);
+                chassert(i == result_cols.size());
+                left_cursor->next();
+                continue;
+            }
+            else
+            {
+                // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
+                asof_join_state.reset();
             }
             // LOG_DEBUG(&Poco::Logger::get("XXXX"), "{}:{} ", __FILE__, __LINE__);
 
             /// no matches for rows in left table, just pass them through
             size_t num = nextDistinct(*left_cursor);
-            if (isLeft(kind))
+            if (isLeft(kind) && num)
             {
                 /// return them with default values at right side
                 size_t i = 0;
