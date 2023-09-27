@@ -969,7 +969,6 @@
         metrics - send data from table system.metrics
         events - send data from table system.events
         asynchronous_metrics - send data from table system.asynchronous_metrics
-        status_info - send data from different component from CH, ex: Dictionaries status
     -->
     <!--
     <prometheus>
@@ -979,7 +978,6 @@
         <metrics>true</metrics>
         <events>true</events>
         <asynchronous_metrics>true</asynchronous_metrics>
-        <status_info>true</status_info>
     </prometheus>
     -->
 
@@ -1493,4 +1491,10 @@
     <!-- On Linux systems this can control the behavior of OOM killer.
     <oom_score>-1000</oom_score>
     -->
+
+    <!-- Delay (in seconds) to wait for unfinished queries before force exit -->
+    <!-- <shutdown_wait_unfinished>5</shutdown_wait_unfinished> -->
+
+    <!-- If set true ClickHouse will wait for running queries finish before shutdown. -->
+    <!-- <shutdown_wait_unfinished_queries>false</shutdown_wait_unfinished_queries> -->
 </clickhouse>
