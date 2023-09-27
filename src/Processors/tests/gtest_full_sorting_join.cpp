@@ -2,6 +2,7 @@
 
 #include <pcg_random.hpp>
 #include <random>
+#include <Poco/ConsoleChannel.h>
 
 #include <Columns/ColumnsNumber.h>
 #include <Common/getRandomASCIIString.h>
@@ -294,18 +295,25 @@ bool isStrict(ASOFJoinInequality inequality)
 
 }
 
-class FullSortingJoinRandomized : public ::testing::Test
+class FullSortingJoinTest : public ::testing::Test
 {
 public:
-    FullSortingJoinRandomized() = default;
+    FullSortingJoinTest() = default;
 
     void SetUp() override
     {
+        Poco::AutoPtr<Poco::ConsoleChannel> channel(new Poco::ConsoleChannel(std::cerr));
+        Poco::Logger::root().setChannel(channel);
+        if (const char * test_log_level = std::getenv("TEST_LOG_LEVEL")) // NOLINT(concurrency-mt-unsafe)
+            Poco::Logger::root().setLevel(test_log_level);
+        else
+            Poco::Logger::root().setLevel("none");
+
+
         UInt64 seed = randomSeed();
         if (const char * random_seed = std::getenv("TEST_RANDOM_SEED")) // NOLINT(concurrency-mt-unsafe)
             seed = std::stoull(random_seed);
-
-        std::cerr << "TEST_RANDOM_SEED=" << seed << std::endl;
+        std::cout << "TEST_RANDOM_SEED=" << seed << std::endl;
         rng = pcg64(seed);
     }
 
@@ -316,7 +324,7 @@ public:
     pcg64 rng;
 };
 
-TEST(FullSortingJoin, AllAnyOneKey)
+TEST_F(FullSortingJoinTest, AllAnyOneKey)
 try
 {
     {
@@ -392,7 +400,7 @@ catch (Exception & e)
 }
 
 
-TEST_F(FullSortingJoinRandomized, Any)
+TEST_F(FullSortingJoinTest, AnySimple)
 try
 {
     JoinKind kind = getRandomFrom(rng, {JoinKind::Inner, JoinKind::Left, JoinKind::Right});
@@ -478,7 +486,7 @@ catch (Exception & e)
     throw;
 }
 
-TEST(FullSortingJoin, Asof)
+TEST_F(FullSortingJoinTest, AsofSimple)
 try
 {
     SourceChunksBuilder left_source({
@@ -543,7 +551,7 @@ catch (Exception & e)
 }
 
 
-TEST_F(FullSortingJoinRandomized, AsofOnlyColumn)
+TEST_F(FullSortingJoinTest, AsofOnlyColumn)
 try
 {
     auto left_source = oneColumnSource({ {3}, {3, 3, 3}, {3, 5, 5, 6}, {9, 9}, {10, 20} });
@@ -587,7 +595,7 @@ catch (Exception & e)
     throw;
 }
 
-TEST_F(FullSortingJoinRandomized, AsofLessGeneratedTestData)
+TEST_F(FullSortingJoinTest, AsofLessGeneratedTestData)
 try
 {
     auto join_kind = getRandomFrom(rng, { JoinKind::Inner, JoinKind::Left });
@@ -676,7 +684,7 @@ catch (Exception & e)
     throw;
 }
 
-TEST_F(FullSortingJoinRandomized, AsofGreaterGeneratedTestData)
+TEST_F(FullSortingJoinTest, AsofGreaterGeneratedTestData)
 try
 {
     auto join_kind = getRandomFrom(rng, { JoinKind::Inner, JoinKind::Left });
