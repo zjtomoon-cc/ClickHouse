@@ -708,13 +708,13 @@ try
     String k2 = "";
     UInt64 left_t = 0;
 
-    auto key_num_total = std::uniform_int_distribution<>(1, 100)(rng);
+    auto key_num_total = std::uniform_int_distribution<>(1, 1000)(rng);
     for (size_t key_num = 0; key_num < key_num_total; ++key_num)
     {
         generateNextKey(rng, k1, k2);
 
         /// generate some rows with smaller left_t to check that they are not matched
-        size_t num_left_rows = std::bernoulli_distribution(0.5)(rng) ? std::uniform_int_distribution<>(1, 10)(rng) : 0;
+        size_t num_left_rows = std::bernoulli_distribution(0.5)(rng) ? std::uniform_int_distribution<>(1, 100)(rng) : 0;
         for (size_t i = 0; i < num_left_rows; ++i)
         {
             left_t += std::uniform_int_distribution<>(1, 10)(rng);
@@ -737,8 +737,8 @@ try
         }
 
         /// next left_t should be greater than (or equals) right_t to match with previous rows
-        left_t = right_t + std::uniform_int_distribution<>(isStrict(asof_inequality) ? 1 : 0, 10)(rng);
-        size_t num_left_matches = std::uniform_int_distribution<>(1, 10)(rng);
+        left_t = right_t + std::uniform_int_distribution<>(isStrict(asof_inequality) ? 1 : 0, 100)(rng);
+        size_t num_left_matches = std::uniform_int_distribution<>(1, 100)(rng);
         for (size_t j = 0; j < num_left_matches; ++j)
         {
             left_t += std::uniform_int_distribution<>(0, 3)(rng);
